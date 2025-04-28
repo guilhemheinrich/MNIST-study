@@ -76,5 +76,5 @@
 data/: Directory for MNIST dataset and other data files
 README.md: Project documentation and setup instructions
 .cursorrules: Project rules and guidelines
-requirements.txt: Python dependencies
+requirements.txt: Python dependencies DON'T UPDATE THIS FILE
 pyproject.toml: Project configuration and build system 

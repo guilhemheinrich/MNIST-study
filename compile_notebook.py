@@ -1,0 +1,154 @@
+import os
+import sys
+import shutil
+from pathlib import Path
+import jupytext
+import nbconvert
+import nbformat
+import subprocess
+
+def ensure_directory_structure(input_path: str, base_dir: str) -> tuple[str, str, str]:
+    """Create necessary directory structure and return paths.
+    
+    Args:
+        input_path: Path to the input file or directory
+        base_dir: Base directory to compute relative paths from
+        
+    Returns:
+        Tuple of (build_path, pdf_path, public_path)
+    """
+    # Get relative path from base directory
+    rel_path = os.path.relpath(input_path, base_dir)
+    
+    # Create paths preserving directory structure relative to base_dir
+    build_path = os.path.join('build', os.path.dirname(rel_path))
+    pdf_path = os.path.join('pdf', os.path.dirname(rel_path))
+    public_path = os.path.join('public', os.path.dirname(rel_path))
+
+    # Create directories
+    os.makedirs(build_path, exist_ok=True)
+    os.makedirs(pdf_path, exist_ok=True)
+    os.makedirs(public_path, exist_ok=True)
+
+    return build_path, pdf_path, public_path
+
+def convert_to_notebook(input_path: str, output_path: str) -> None:
+    """Convert a .py file to a .ipynb notebook."""
+    nb = jupytext.read(input_path)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        nbformat.write(nb, f)
+
+def execute_notebook(notebook_path: str) -> None:
+    """Execute a notebook and save the results."""
+    try:
+        subprocess.run([
+            'jupyter', 'nbconvert',
+            '--to', 'notebook',
+            '--execute',
+            '--inplace',
+            notebook_path
+        ], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error executing notebook: {e}")
+        raise
+
+def convert_notebook_to_html(notebook_path: str, output_path: str) -> None:
+    """Convert a .ipynb notebook to an HTML file."""
+    exporter = nbconvert.HTMLExporter()
+    # Create resources dictionary
+    resources = {}
+    resources['metadata'] = {}
+    # Convert notebook
+    output, _ = exporter.from_filename(notebook_path, resources=resources)
+    # Write to file
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(output)
+
+def convert_html_to_pdf(html_path: str, output_path: str) -> None:
+    """Convert an HTML file to PDF using wkhtmltopdf."""
+    try:
+        subprocess.run(['wkhtmltopdf', html_path, output_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error converting HTML to PDF: {e}")
+    except FileNotFoundError:
+        print("wkhtmltopdf not found. Please install it from https://wkhtmltopdf.org/downloads.html")
+
+def build_notebook(input_path: str, build_path: str) -> str:
+    """Build a notebook from a Python file.
+    
+    Args:
+        input_path: Path to the input Python file
+        build_path: Path to the build directory
+        
+    Returns:
+        Path to the built notebook
+    """
+    # Create notebook path preserving filename
+    notebook_name = Path(input_path).stem + '.ipynb'
+    notebook_path = os.path.join(build_path, notebook_name)
+    
+    # Convert and execute notebook
+    convert_to_notebook(input_path, notebook_path)
+    execute_notebook(notebook_path)
+    
+    return notebook_path
+
+def generate_outputs(notebook_path: str, pdf_path: str, public_path: str) -> None:
+    """Generate HTML and PDF outputs from a notebook.
+    
+    Args:
+        notebook_path: Path to the notebook
+        pdf_path: Path to the PDF output directory
+        public_path: Path to the HTML output directory
+    """
+    # Create output paths
+    notebook_name = Path(notebook_path).stem
+    html_path = os.path.join(public_path, notebook_name + '.html')
+    pdf_output_path = os.path.join(pdf_path, notebook_name + '.pdf')
+    
+    # Generate outputs
+    convert_notebook_to_html(notebook_path, html_path)
+    convert_html_to_pdf(html_path, pdf_output_path)
+
+def process_file(input_path: str, base_dir: str) -> None:
+    """Process a single .py file."""
+    # Create directory structure
+    build_path, pdf_path, public_path = ensure_directory_structure(input_path, base_dir)
+    
+    # Build notebook
+    notebook_path = build_notebook(input_path, build_path)
+    
+    # Generate outputs
+    generate_outputs(notebook_path, pdf_path, public_path)
+
+def process_directory(input_dir: str) -> None:
+    """Process all .py files in a directory."""
+    for root, _, files in os.walk(input_dir):
+        for file in files:
+            if file.endswith('.py'):
+                input_path = os.path.join(root, file)
+                process_file(input_path, input_dir)
+
+def main(input_path: str) -> None:
+    """Main function to process input path."""
+    if os.path.isfile(input_path):
+        process_file(input_path, os.path.dirname(input_path))
+    elif os.path.isdir(input_path):
+        process_directory(input_path)
+    else:
+        print(f"Error: {input_path} is not a valid file or directory.")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python convert_notebooks.py <input_path>")
+        sys.exit(1)
+
+    input_path = sys.argv[1]
+
+    # Create base output directories
+    os.makedirs('build', exist_ok=True)
+    os.makedirs('pdf', exist_ok=True)
+    os.makedirs('public', exist_ok=True)
+
+    main(input_path)
