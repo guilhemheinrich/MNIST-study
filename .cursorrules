@@ -1,0 +1,80 @@
+# MNIST Study Project Rules
+
+## Language and Documentation
+- All code files must be written in English
+- All comments and documentation must be in English
+- All commit messages must be in English
+- All print statements and logs must be in English
+- README.md and .cursorrules must be updated whenever files are added or removed from the project
+
+## Python Version and Typing
+- Minimum Python version: 3.10
+- Use Python 3.10+ typing syntax:
+  - Use `|` for union types instead of `Union`
+  - Use `list[Type]` instead of `List[Type]`
+  - Use `dict[KeyType, ValueType]` instead of `Dict[KeyType, ValueType]`
+  - Use `tuple[Type1, Type2]` instead of `Tuple[Type1, Type2]`
+  - Use `type` instead of `Type`
+  - Use `| None` instead of `Optional`
+
+## Code Style and Formatting
+- Follow PEP 8 for code style
+- Use black for code formatting
+- Use isort for import sorting
+- Use flake8 for linting
+- Use mypy for type checking
+- Maximum line length: 88 characters (black default)
+
+## Documentation Standards
+- Use Google-style docstrings for all functions, classes, and modules
+- Docstring format:
+  ```python
+  def function_name(arg1: type, arg2: type) -> return_type:
+      """Short description of the function.
+
+      Longer description if needed.
+
+      Args:
+          arg1: Description of arg1
+          arg2: Description of arg2
+
+      Returns:
+          Description of the return value
+
+      Raises:
+          ExceptionType: Description of when this exception is raised
+      """
+  ```
+- Include type hints in docstrings
+- Document all public APIs
+- Keep docstrings up to date with code changes
+
+## Version Control
+- Use semantic commit messages:
+  - feat: New feature
+  - fix: Bug fix
+  - docs: Documentation changes
+  - style: Code style changes (formatting, etc.)
+  - refactor: Code refactoring
+  - test: Adding or modifying tests
+  - chore: Maintenance tasks
+- Example: `feat: add MNIST data loader`
+- Include detailed description in commit body when needed
+- Reference issues/PRs in commit messages when applicable
+
+## Project Structure
+- Use data/ directory for datasets
+- Create additional directories as needed following the planned structure:
+  - src/ for source code
+  - tests/ for test files
+  - docs/ for documentation
+  - notebooks/ for Jupyter notebooks
+
+## File System Tracking
+# File System Changes
+# Format: <path>: <description>
+data/: Directory for MNIST dataset and other data files
+README.md: Project documentation and setup instructions
+.cursorrules: Project rules and guidelines
+requirements.txt: Python dependencies
+pyproject.toml: Project configuration and build system 
