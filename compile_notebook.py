@@ -33,8 +33,22 @@ def ensure_directory_structure(input_path: str, base_dir: str) -> tuple[str, str
     return build_path, pdf_path, public_path
 
 def convert_to_notebook(input_path: str, output_path: str) -> None:
-    """Convert a .py file to a .ipynb notebook."""
+    """Convert a .py file to a .ipynb notebook.
+    
+    Args:
+        input_path: Path to the input Python file
+        output_path: Path to the output notebook file
+    """
+    # Read the notebook with jupytext
     nb = jupytext.read(input_path)
+    
+    # Convert all markdown cells to handle links
+    for cell in nb.cells:
+        if cell.cell_type == 'markdown':
+            # Replace .py links with .ipynb
+            cell.source = cell.source.replace('.py)', '.ipynb)')
+    
+    # Write the notebook
     with open(output_path, 'w', encoding='utf-8') as f:
         nbformat.write(nb, f)
 
