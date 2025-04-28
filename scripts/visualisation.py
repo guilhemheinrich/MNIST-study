@@ -12,6 +12,7 @@ sys.path.append(str(project_root))
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.decomposition import PCA
 from src.utils.mnist_visualization import visualize_mnist_image
 
 # Load training data
@@ -48,6 +49,28 @@ sns.countplot(data=df, x='label')
 plt.title("Distribution of Digits in Training Set")
 plt.xlabel("Digit")
 plt.ylabel("Count")
+
+# Perform PCA and plot
+plt.figure(figsize=(12, 8))
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(df.drop('label', axis=1))
+df_pca = pd.DataFrame(X_pca, columns=['PC1', 'PC2'])
+df_pca['label'] = df['label']
+
+# Plot PCA results with a categorical color palette
+sns.scatterplot(
+    data=df_pca,
+    x='PC1',
+    y='PC2',
+    hue='label',
+    palette='tab10',  # Palette with good contrast for categorical data
+    alpha=0.6,
+    s=10
+)
+plt.title("PCA of MNIST Training Set (First Two Components)")
+plt.xlabel(f"PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)")
+plt.ylabel(f"PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)")
+plt.legend(title='Digit')
 
 # Show all plots
 plt.show() 
