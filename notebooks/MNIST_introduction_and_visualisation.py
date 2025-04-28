@@ -7,6 +7,8 @@
 # ## Dependencies
 # 
 # Import required libraries and modules
+# 
+# For testing purposes, see also [test notebook](./test.py) in the same directory.
 
 # %%
 import sys

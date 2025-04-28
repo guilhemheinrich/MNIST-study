@@ -67,13 +67,31 @@ def execute_notebook(notebook_path: str) -> None:
         raise
 
 def convert_notebook_to_html(notebook_path: str, output_path: str) -> None:
-    """Convert a .ipynb notebook to an HTML file."""
+    """Convert a .ipynb notebook to an HTML file.
+    
+    Args:
+        notebook_path: Path to the input notebook file
+        output_path: Path to the output HTML file
+    """
+    # Read the notebook
+    with open(notebook_path, 'r', encoding='utf-8') as f:
+        nb = nbformat.read(f, as_version=4)
+    
+    # Convert all markdown cells to handle links
+    for cell in nb.cells:
+        if cell.cell_type == 'markdown':
+            # Replace .ipynb links with .html
+            cell.source = cell.source.replace('.ipynb)', '.html)')
+    
+    # Create exporter
     exporter = nbconvert.HTMLExporter()
     # Create resources dictionary
     resources = {}
     resources['metadata'] = {}
+    
     # Convert notebook
-    output, _ = exporter.from_filename(notebook_path, resources=resources)
+    output, _ = exporter.from_notebook_node(nb, resources=resources)
+    
     # Write to file
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(output)
