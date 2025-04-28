@@ -10,12 +10,17 @@ import seaborn as sns
 from typing import Sequence
 from numpy.typing import ArrayLike
 
-def visualize_mnist_image(pixels: Sequence[int] | ArrayLike, label: int | None = None) -> None:
+def visualize_mnist_image(
+    pixels: Sequence[int] | ArrayLike, 
+    label: int | None = None,
+    ax: plt.Axes | None = None
+) -> None:
     """Visualize a single MNIST image from its pixel values.
 
     Args:
         pixels: Sequence of 784 pixel values (0-255) representing the image
         label: Optional label (0-9) to display as the title
+        ax: Optional matplotlib Axes to plot on. If None, creates a new figure.
 
     Raises:
         ValueError: If the length of pixels is not 784
@@ -27,19 +32,24 @@ def visualize_mnist_image(pixels: Sequence[int] | ArrayLike, label: int | None =
     image = np.array(pixels).reshape(28, 28)
     
     # Create the plot
-    plt.figure(figsize=(6, 6))
+    if ax is None:
+        plt.figure(figsize=(6, 6))
+        ax = plt.gca()
+    
     sns.heatmap(
         image,
         cmap='gray_r',  # Reversed grayscale for better visibility
         cbar=False,
         square=True,
         xticklabels=False,
-        yticklabels=False
+        yticklabels=False,
+        ax=ax
     )
     
     # Add title if label is provided
     if label is not None:
-        plt.title(f"Label: {label}")
+        ax.set_title(f"Label: {label}")
     
-    plt.tight_layout()
-    plt.show() 
+    if ax is None:
+        plt.tight_layout()
+        plt.show() 

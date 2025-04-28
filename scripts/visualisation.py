@@ -1,5 +1,5 @@
 """
-Script to visualize MNIST images.
+Script to visualize MNIST images and label distribution.
 """
 
 import sys
@@ -10,16 +10,44 @@ project_root = Path(__file__).parent.parent
 sys.path.append(str(project_root))
 
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from src.utils.mnist_visualization import visualize_mnist_image
 
-# Load a sample from the training data
+# Load training data
 df = pd.read_csv(project_root / "data" / "train.csv")
-sample = df.iloc[0]
 
-# Extract label and pixels
-label_series = sample['label']
-label = label_series.item()  # Convert Series to int using .item()
-pixels = sample.drop('label').values.astype(int)  # Convert to numpy array of ints
+# Create a 4x3 grid of subplots
+fig, axes = plt.subplots(4, 3, figsize=(12, 16))
+fig.suptitle("First Example of Each Digit (0-9)", fontsize=16)
 
-# Visualize the image
-visualize_mnist_image(pixels, label) 
+# Plot first example of each digit
+for digit in range(10):
+    row = digit // 3
+    col = digit % 3
+    ax = axes[row, col]
+    
+    # Get first example of current digit
+    sample = df[df['label'] == digit].iloc[0]
+    label = sample['label'].item()
+    pixels = sample.drop('label').values.astype(int)
+    
+    # Visualize the image in the subplot
+    visualize_mnist_image(pixels, label, ax=ax)
+
+# Remove empty subplots
+axes[3, 1].axis('off')
+axes[3, 2].axis('off')
+
+# Adjust layout
+plt.tight_layout()
+
+# Create distribution plot
+plt.figure(figsize=(10, 6))
+sns.countplot(data=df, x='label')
+plt.title("Distribution of Digits in Training Set")
+plt.xlabel("Digit")
+plt.ylabel("Count")
+
+# Show all plots
+plt.show() 
