@@ -26,3 +26,25 @@ import pandas as pd
 # ## Reference to Main Notebook
 # 
 # This notebook is referenced in `MNIST_introduction_and_visualisation.py` for testing purposes. 
+
+# %% tags=["remove_cell"]
+a = 1
+b = 2
+c = a + b
+
+# %% tags=["hide_input"]
+print("Variables values:")
+print(f"a = {a}")
+print(f"b = {b}")
+print(f"c = {c} (sum of a and b)")
+
+
+# %% [markdown]
+# ## Variables Reference
+# 
+# The values used in the previous cell are:
+# - a = 1
+# - b = 2
+# - c = 3 (sum of a and b)
+
+
