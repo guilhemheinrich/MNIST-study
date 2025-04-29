@@ -38,14 +38,42 @@ def convert_to_notebook(input_path: str, output_path: str) -> None:
     Args:
         input_path: Path to the input Python file
         output_path: Path to the output notebook file
+        
+    Note:
+        Tags can be added to any cell using the syntax:
+        # %% [markdown] tags=["tag1", "tag2"]  # pour les cellules markdown
+        # %% tags=["tag1", "tag2"]            # pour les cellules code
     """
     # Read the notebook with jupytext
     nb = jupytext.read(input_path)
     
-    # Convert all markdown cells to handle links
+    # Convert all cells and handle their metadata
     for cell in nb.cells:
+        # Ensure metadata exists
+        if not hasattr(cell, 'metadata'):
+            cell.metadata = {}
+            
+        # Initialize tags if they don't exist
+        if 'tags' not in cell.metadata:
+            cell.metadata['tags'] = []
+            
+        # Handle cell markers and their tags
+        source_lines = cell.source.split('\n')
+        for i, line in enumerate(source_lines):
+            # Check for cell markers with tags
+            if line.startswith('# %%'):
+                # Extract tags if present
+                if 'tags=[' in line:
+                    tags_start = line.find('tags=[')
+                    tags_end = line.find(']', tags_start)
+                    if tags_end != -1:
+                        tags_str = line[tags_start+6:tags_end]
+                        # Parse the tags (handling both "tag" and tag formats)
+                        tags = [t.strip().strip('"\'') for t in tags_str.split(',')]
+                        cell.metadata['tags'].extend(tags)
+                
+        # Handle markdown links
         if cell.cell_type == 'markdown':
-            # Replace .py links with .ipynb
             cell.source = cell.source.replace('.py)', '.ipynb)')
     
     # Write the notebook
@@ -60,6 +88,7 @@ def execute_notebook(notebook_path: str) -> None:
             '--to', 'notebook',
             '--execute',
             '--inplace',
+            '--TagRemovePreprocessor.remove_cell_tags', 'remove_cell',
             notebook_path
         ], check=True)
     except subprocess.CalledProcessError as e:
@@ -96,14 +125,50 @@ def convert_notebook_to_html(notebook_path: str, output_path: str) -> None:
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(output)
 
-def convert_html_to_pdf(html_path: str, output_path: str) -> None:
-    """Convert an HTML file to PDF using wkhtmltopdf."""
+def convert_html_to_pdf(notebook_path: str, output_path: str) -> None:
+    """Convert a notebook to PDF using nbconvert and wkhtmltopdf.
+    
+    Args:
+        notebook_path: Path to the input notebook file
+        output_path: Path to the output PDF file
+    """
     try:
-        subprocess.run(['wkhtmltopdf', html_path, output_path], check=True)
+        # Read the notebook
+        with open(notebook_path, 'r', encoding='utf-8') as f:
+            nb = nbformat.read(f, as_version=4)
+        
+        # Convert all markdown cells to handle links
+        for cell in nb.cells:
+            if cell.cell_type == 'markdown':
+                # Replace .ipynb links with .pdf
+                cell.source = cell.source.replace('.ipynb)', '.pdf)')
+        
+        # Create temporary HTML file
+        temp_html = output_path.replace('.pdf', '.html')
+        
+        # Create exporter
+        exporter = nbconvert.HTMLExporter()
+        resources = {'metadata': {}}
+        
+        # Convert notebook to HTML
+        output, _ = exporter.from_notebook_node(nb, resources=resources)
+        
+        # Write HTML to temporary file
+        with open(temp_html, 'w', encoding='utf-8') as f:
+            f.write(output)
+        
+        # Convert HTML to PDF using wkhtmltopdf
+        subprocess.run(['wkhtmltopdf', temp_html, output_path], check=True)
+        
+        # Clean up temporary HTML file
+        os.remove(temp_html)
+        
     except subprocess.CalledProcessError as e:
-        print(f"Error converting HTML to PDF: {e}")
+        print(f"Error converting notebook to PDF: {e}")
     except FileNotFoundError:
         print("wkhtmltopdf not found. Please install it from https://wkhtmltopdf.org/downloads.html")
+    except Exception as e:
+        print(f"Unexpected error during PDF conversion: {e}")
 
 def build_notebook(input_path: str, build_path: str) -> str:
     """Build a notebook from a Python file.
@@ -140,7 +205,7 @@ def generate_outputs(notebook_path: str, pdf_path: str, public_path: str) -> Non
     
     # Generate outputs
     convert_notebook_to_html(notebook_path, html_path)
-    convert_html_to_pdf(html_path, pdf_output_path)
+    # convert_html_to_pdf(notebook_path, pdf_output_path)
 
 def process_file(input_path: str, base_dir: str) -> None:
     """Process a single .py file."""
