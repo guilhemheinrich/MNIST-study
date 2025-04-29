@@ -34,83 +34,11 @@ Template documentation:
 
 import os
 import nbformat
-import nbconvert
 import argparse
-from typing import Any
-from traitlets.config import Config
 from pathlib import Path
 
-def create_exporter(
-    hide_input: bool = False,
-    hide_output: bool = False,
-    template_name: str | None = None,
-    template_path: str | None = None,
-    template_file: str | None = None
-) -> tuple[nbconvert.HTMLExporter, dict[str, Any]]:
-    """Create and configure the HTML exporter with preprocessors.
-    
-    Args:
-        hide_input: Whether to hide all input cells by default
-        hide_output: Whether to hide all output cells by default
-        template_name: Name of the built-in template to use. Available options:
-            - classic: The classic Jupyter notebook template
-            - lab: JupyterLab-like template
-            - basic: A minimal template
-            - reveal: For presentations (requires reveal.js)
-            - full: Full template with all features
-            - custom: Custom template (requires template_path or template_file)
-        template_path: Path to a custom template directory
-        template_file: Path to a specific template file
-    
-    Returns:
-        Tuple of (exporter, resources)
-    """
-    # Create configuration
-    c = Config()
-    
-    # Configure TagRemovePreprocessor
-    c.TagRemovePreprocessor.remove_cell_tags = set(['remove_cell'])
-    c.TagRemovePreprocessor.remove_input_tags = set(['hide_input'])
-    c.TagRemovePreprocessor.remove_all_outputs_tags = set(['hide_output'])
-    c.TagRemovePreprocessor.enabled = True
-    
-    # Configure HTMLExporter
-    c.HTMLExporter.preprocessors = [
-        'nbconvert.preprocessors.TagRemovePreprocessor'
-    ]
-    
-    # Configure template
-    if template_name:
-        c.HTMLExporter.template_name = template_name
-    elif template_path:
-        c.HTMLExporter.template_paths = [template_path]
-    elif template_file:
-        c.HTMLExporter.template_file = template_file
-    
-    print('DEBUG: config c', c)
-    # Create exporter with config
-    exporter = nbconvert.HTMLExporter(config=c)
-    
-    # Lister les chemins des templates
-    template_paths = exporter.template_paths
+from jupyter_factory.shared.exporter import create_exporter
 
-    print("Chemins des templates disponibles :")
-    for path in template_paths:
-        print(path)
-    # Set global visibility options
-    exporter.exclude_input = hide_input
-    exporter.exclude_output = hide_output
-    
-    # Create resources dictionary
-    resources = {
-        'metadata': {},
-        'global_content_filter': {
-            'include_input': not hide_input,
-            'include_output': not hide_output,
-        }
-    }
-    
-    return exporter, resources
 
 def process_cell_tags(cell: nbformat.NotebookNode) -> None:
     """Process cell tags to determine visibility and execution.
@@ -123,6 +51,7 @@ def process_cell_tags(cell: nbformat.NotebookNode) -> None:
     
     if 'tags' not in cell.metadata:
         cell.metadata['tags'] = []
+
 
 def convert_notebook_to_html(
     notebook_path: str,
@@ -181,6 +110,7 @@ def convert_notebook_to_html(
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(output)
 
+
 def main():
     """CLI entry point for converting notebooks to HTML."""
     parser = argparse.ArgumentParser(description='Convert Jupyter notebooks to HTML')
@@ -214,6 +144,7 @@ def main():
         print(f"Successfully converted {args.input} to {args.output}")
     except Exception as e:
         print(f"Error converting notebook to HTML: {e}")
+
 
 if __name__ == "__main__":
     main() 
