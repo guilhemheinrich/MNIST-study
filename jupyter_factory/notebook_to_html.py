@@ -87,9 +87,16 @@ def create_exporter(
     elif template_file:
         c.HTMLExporter.template_file = template_file
     
+    print('DEBUG: config c', c)
     # Create exporter with config
     exporter = nbconvert.HTMLExporter(config=c)
     
+    # Lister les chemins des templates
+    template_paths = exporter.template_paths
+
+    print("Chemins des templates disponibles :")
+    for path in template_paths:
+        print(path)
     # Set global visibility options
     exporter.exclude_input = hide_input
     exporter.exclude_output = hide_output
@@ -143,6 +150,8 @@ def convert_notebook_to_html(
         template_path: Path to a custom template directory
         template_file: Path to a specific template file
     """
+    print(f"Converting notebook {notebook_path} to HTML...") 
+    print('DEBUG: template_name', template_name)
     # Read the notebook
     with open(notebook_path, 'r', encoding='utf-8') as f:
         nb = nbformat.read(f, as_version=4)
