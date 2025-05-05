@@ -34,6 +34,12 @@ from sklearn.model_selection import cross_validate, GridSearchCV
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
 
+# Import PyTorch
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
+
 # %% [markdown]
 # ## Parameters
 # We will define paramters for this notebook, such as the proportion of the dataset used for training and testing, to speed up generation and testing.
@@ -42,8 +48,12 @@ from sklearn.ensemble import RandomForestClassifier
 # Define parameters
 RANDOM_SEED = 42
 SAMPLES_PER_LABEL = 1000
+# Number of folds for cross-validation
 CV_K_FOLD = 4
+# Neural network training parameters
 TRAIN_VALIDATION_SPLIT = 0.2
+NUM_EPOCHS = 50  # Maximum number of epochs for training
+PATIENCE = 5  # Number of epochs to wait for improvement before early stopping
 
 # %% [markdown]
 # ## Loading MNIST Dataset
@@ -402,3 +412,208 @@ plot_classification_metrics(
 #
 # The PLS model performs a bit lower than the Random Forest model, with an accuracy and a balanced accuracy a bit above 85%.
 # It is not bad in itself, but produce three times more error than the Random Forest model.
+# %% [markdown]
+# ## Perceptron
+#
+# The Perceptron is the simplest deep learning model. It consists of a single layer of neurons that takes as input
+# the image pixels (784 values) and outputs 10 values (one for each class).
+#
+# ### Model Implementation
+
+
+# %%
+class SimplePerceptron(nn.Module):
+    """Simple Perceptron model for MNIST classification.
+
+    Args:
+        input_size: Number of input features (784 for MNIST)
+        num_classes: Number of output classes (10 for MNIST)
+    """
+
+    def __init__(self, input_size: int, num_classes: int) -> None:
+        super().__init__()
+        self.linear = nn.Linear(input_size, num_classes)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the model.
+
+        Args:
+            x: Input tensor of shape (batch_size, input_size)
+
+        Returns:
+            Output tensor of shape (batch_size, num_classes)
+        """
+        return self.linear(x)
+
+
+# %% [markdown]
+# ### Data Preparation
+#
+# We need to:
+# 1. Convert our NumPy data to PyTorch tensors and normalize them
+# 2. Split training data into train and validation sets
+# 3. Create data loaders for each set
+
+# %%
+# Convert preprocessed data to PyTorch tensors and normalize
+X_preprocessed_tensor = torch.FloatTensor(X_train_preprocessed) / 255.0
+y_preprocessed_tensor = torch.LongTensor(y_train_preprocessed)
+
+# Split preprocessed data into train and validation sets
+X_train_tensor, X_val_tensor, y_train_tensor, y_val_tensor = train_test_split(
+    X_preprocessed_tensor,
+    y_preprocessed_tensor,
+    test_size=TRAIN_VALIDATION_SPLIT,
+    random_state=RANDOM_SEED,
+    stratify=y_preprocessed_tensor,
+)
+
+# Convert test data to tensors (will only be used for final evaluation)
+X_test_tensor = torch.FloatTensor(X_test) / 255.0
+y_test_tensor = torch.LongTensor(y_test)
+
+# Create data loaders
+train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+
+val_dataset = TensorDataset(X_val_tensor, y_val_tensor)
+val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
+
+test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+
+# %% [markdown]
+# ### Model, criterion and optimizer
+# We use a CrossEntropyLoss as criterion to compute the loss between the predicted and the true labels. The same logic is applied form the PLS model, where we need to convert the classification to a regression one.
+# %%
+# Initialize model, loss function and optimizer
+model = SimplePerceptron(input_size=784, num_classes=10)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+
+# %%[markdown]
+# ### Training loop
+# We will use early stopping based on validation loss to prevent overfitting.
+
+# %%
+# Training parameters
+best_val_loss = float("inf")
+patience_counter = 0
+metrics = []
+
+# Training loop
+print("Starting training...")
+for epoch in range(NUM_EPOCHS):
+    # Training phase
+    model.train()
+    running_train_loss = 0.0
+
+    for inputs, labels in train_loader:
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        running_train_loss += loss.item()
+
+    avg_train_loss = running_train_loss / len(train_loader)
+
+    # Validation phase
+    model.eval()
+    running_val_loss = 0.0
+    val_preds = []
+    val_labels = []
+
+    with torch.no_grad():
+        for inputs, labels in val_loader:
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            running_val_loss += loss.item()
+            _, predicted = torch.max(outputs.data, 1)
+            val_preds.extend(predicted.numpy())
+            val_labels.extend(labels.numpy())
+
+    avg_val_loss = running_val_loss / len(val_loader)
+    val_accuracy = np.mean(np.array(val_preds) == np.array(val_labels))
+
+    # Store metrics
+    metrics.append(
+        {
+            "epoch": epoch + 1,
+            "train_loss": avg_train_loss,
+            "val_loss": avg_val_loss,
+            "val_accuracy": val_accuracy,
+        }
+    )
+
+    # Print progress
+    print(f"Epoch {epoch+1}/{NUM_EPOCHS}")
+    print(f"Train Loss: {avg_train_loss:.4f}")
+    print(f"Validation Loss: {avg_val_loss:.4f}")
+    print(f"Validation Accuracy: {val_accuracy:.4f}")
+    print("----------------------------------------")
+
+    # Early stopping check
+    if avg_val_loss < best_val_loss:
+        best_val_loss = avg_val_loss
+        patience_counter = 0
+        # Save best model state
+        best_model_state = model.state_dict()
+    else:
+        patience_counter += 1
+        if patience_counter >= PATIENCE:
+            print(f"Early stopping triggered after {epoch + 1} epochs")
+            break
+# %% [markdown]
+# We plot the training progress to see when the model is overfitting.
+# %%
+# Plot training progress
+epochs = [m["epoch"] for m in metrics]
+train_losses = [m["train_loss"] for m in metrics]
+val_losses = [m["val_loss"] for m in metrics]
+val_accuracies = [m["val_accuracy"] for m in metrics]
+
+plt.figure(figsize=(12, 4))
+plt.subplot(1, 2, 1)
+plt.plot(epochs, train_losses, label="Train Loss")
+plt.plot(epochs, val_losses, label="Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(epochs, val_accuracies, label="Validation Accuracy")
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
+# ### Final evaluation
+# We load the best model and evaluate it on the test set.
+# %%
+# Load best model for final evaluation
+model.load_state_dict(best_model_state)
+
+print("\nFinal Test Set Performance:")
+model.eval()
+test_preds = []
+test_labels = []
+
+with torch.no_grad():
+    for inputs, labels in test_loader:
+        outputs = model(inputs)
+        _, predicted = torch.max(outputs.data, 1)
+        test_preds.extend(predicted.numpy())
+        test_labels.extend(labels.numpy())
+# %% [markdown]
+# ### Results Analysis
+# We print the results and plot the confusion matrix.
+# %%
+print_classification_metrics(np.array(test_labels), np.array(test_preds))
+plot_classification_metrics(
+    np.array(test_labels), np.array(test_preds), "Perceptron Classification Results"
+)
+# %% [markdown]
+# The results are comparable to the Random Forest model, with an accuracy and a balanced accuracy a bit above 91%.
