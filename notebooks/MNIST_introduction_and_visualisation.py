@@ -27,10 +27,9 @@ import seaborn as sns
 import pandas as pd
 from sklearn.decomposition import PCA
 from src.utils.mnist_visualization import visualize_mnist_image
-from sklearn.pipeline import FunctionTransformer, Pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.model_selection import cross_validate, GridSearchCV
+from sklearn.model_selection import  GridSearchCV
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.ensemble import RandomForestClassifier
 
@@ -39,7 +38,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
-
+from torchinfo import summary
 # %% [markdown]
 # ## Parameters
 # We will define paramters for this notebook, such as the proportion of the dataset used for training and testing, to speed up generation and testing.
@@ -52,9 +51,15 @@ SAMPLES_PER_LABEL = 1000
 CV_K_FOLD = 4
 # Neural network training parameters
 TRAIN_VALIDATION_SPLIT = 0.2
+LEARNING_RATE = 0.01
 NUM_EPOCHS = 50  # Maximum number of epochs for training
 PATIENCE = 5  # Number of epochs to wait for improvement before early stopping
-
+# Kernel size for convolutional layers
+KERNEL_SIZE = 3
+# Stride for convolutional layers
+STRIDE = 1
+# Padding for convolutional layers
+PADDING = 2
 # %% [markdown]
 # ## Loading MNIST Dataset
 #
@@ -265,7 +270,8 @@ print(f"Preprocessed dataset shape: {X_train_preprocessed.shape}")
 
 
 # %% [markdown]
-# ## Random Forest Classifier
+# ## Machine Learning
+# ### Random Forest Classifier
 #
 # The Random Forest Classifier is a powerful ensemble learning method that builds multiple decision trees and combines their predictions to improve accuracy and reduce overfitting.
 
@@ -311,7 +317,7 @@ print_classification_metrics(y_test, y_pred)
 plot_classification_metrics(y_test, y_pred, "Random Forest Classification Results")
 
 # %% [markdown]
-# ### Results Analysis
+# #### Results Analysis
 
 #
 # The best model has an accuracy of > 95% on the test set, as well as a balanced accuracy of > 95%.
@@ -319,13 +325,13 @@ plot_classification_metrics(y_test, y_pred, "Random Forest Classification Result
 # The precision, recall and F1-score are also quite good for each class.
 
 # %% [markdown]
-# ## Partial Least Squares (PLS) Analysis
+# ### Partial Least Squares (PLS) Analysis
 
 # PLS is a dimensionality reduction and regression technique that finds the directions of maximum covariance between X and Y.
 # While it's primarily used for regression, we can adapt it for classification by using one-hot encoded target variables.
 
 # %% [markdown]
-# ### Pretreatment
+# #### Pretreatment
 # To use the PLS model, we need to convert the labels into a regression target, which means we will switch from a classification task to a regression task. To do so, we use a one-hot encoding of the labels, with as much dimensions as there are classes in the dataset and a single 1 value for the correct class.
 
 # %%
@@ -338,7 +344,7 @@ feature_names = encoder.get_feature_names_out(["digit"])
 class_mapping = {i: int(name.split("_")[1]) for i, name in enumerate(feature_names)}
 
 # %% [markdown]
-# ### Setting up the PLS model
+# #### Setting up the PLS model
 
 # %%
 # Define parameter grid for cross-validation
@@ -389,7 +395,7 @@ plt.show()
 best_pls = grid_search.best_estimator_
 
 # %% [markdown]
-# ### Predictions & Conclusion
+# #### Predictions & Conclusion
 
 # %%
 # Make predictions on test set
@@ -408,45 +414,12 @@ plot_classification_metrics(
 )
 
 # %% [markdown]
-# ### Results Analysis
+# #### Results Analysis
 #
 # The PLS model performs a bit lower than the Random Forest model, with an accuracy and a balanced accuracy a bit above 85%.
 # It is not bad in itself, but produce three times more error than the Random Forest model.
 # %% [markdown]
-# ## Perceptron
-#
-# The Perceptron is the simplest deep learning model. It consists of a single layer of neurons that takes as input
-# the image pixels (784 values) and outputs 10 values (one for each class).
-#
-# ### Model Implementation
-
-
-# %%
-class SimplePerceptron(nn.Module):
-    """Simple Perceptron model for MNIST classification.
-
-    Args:
-        input_size: Number of input features (784 for MNIST)
-        num_classes: Number of output classes (10 for MNIST)
-    """
-
-    def __init__(self, input_size: int, num_classes: int) -> None:
-        super().__init__()
-        self.linear = nn.Linear(input_size, num_classes)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass of the model.
-
-        Args:
-            x: Input tensor of shape (batch_size, input_size)
-
-        Returns:
-            Output tensor of shape (batch_size, num_classes)
-        """
-        return self.linear(x)
-
-
-# %% [markdown]
+# ## Deep Learning
 # ### Data Preparation
 #
 # We need to:
@@ -481,21 +454,55 @@ val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False)
 
 test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+# %% [markdown]
+# ### Perceptron
+#
+# The Perceptron is the simplest deep learning model. It consists of a single layer of neurons that takes as input
+# the image pixels (784 values) and outputs 10 values (one for each class).
+#
+# #### Model Implementation
+
+
+# %%
+class SimplePerceptron(nn.Module):
+    """Simple Perceptron model for MNIST classification.
+
+    Args:
+        input_size: Number of input features (784 for MNIST)
+        num_classes: Number of output classes (10 for MNIST)
+    """
+
+    def __init__(self, input_size: int, num_classes: int) -> None:
+        super().__init__()
+        self.linear = nn.Linear(input_size, num_classes)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the model.
+
+        Args:
+            x: Input tensor of shape (batch_size, input_size)
+
+        Returns:
+            Output tensor of shape (batch_size, num_classes)
+        """
+        return self.linear(x)
+
+
 
 # %% [markdown]
-# ### Model, criterion and optimizer
+# #### Model, criterion and optimizer
 # We use a CrossEntropyLoss as criterion to compute the loss between the predicted and the true labels. The same logic is applied form the PLS model, where we need to convert the classification to a regression one.
 # %%
 # Initialize model, loss function and optimizer
 model = SimplePerceptron(input_size=784, num_classes=10)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-
+optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9)
+summary(model)
 # %%[markdown]
-# ### Training loop
+# #### Training loop
 # We will use early stopping based on validation loss to prevent overfitting.
 
-# %%
+# %% tags=["hide_output"]
 # Training parameters
 best_val_loss = float("inf")
 patience_counter = 0
@@ -590,7 +597,7 @@ plt.tight_layout()
 plt.show()
 
 # %% [markdown]
-# ### Final evaluation
+# #### Final evaluation
 # We load the best model and evaluate it on the test set.
 # %%
 # Load best model for final evaluation
@@ -608,7 +615,7 @@ with torch.no_grad():
         test_preds.extend(predicted.numpy())
         test_labels.extend(labels.numpy())
 # %% [markdown]
-# ### Results Analysis
+# #### Results Analysis
 # We print the results and plot the confusion matrix.
 # %%
 print_classification_metrics(np.array(test_labels), np.array(test_preds))
@@ -617,3 +624,250 @@ plot_classification_metrics(
 )
 # %% [markdown]
 # The results are comparable to the Random Forest model, with an accuracy and a balanced accuracy a bit above 91%.
+# %% [markdown]
+# ### Convolutional network
+#
+# The convolutional network is a more complex model that is able to learn spatial hierarchies of features from the image. 
+# Here it is used to take into account the spatial structure of the image.
+# 
+# #### Model Implementation
+# In this case, we will use two convolutional layers, with a ReLU activation function and a max pooling layer after each convolutional layer. 
+# We use 2d convolutional layers, as the data being an image possesses two spatial dimensions.
+# %%
+class CNNModel(nn.Module):
+    """CNN model with two convolutional layers for MNIST image classification
+
+    Args:
+        input_channels: Number of input channels (1 for grayscale images)
+        num_classes: Number of output classes (10 for MNIST digits)
+        kernel_size: Size of the convolutional kernel
+        stride: Stride of the convolution
+        padding: Padding added to the input
+    """
+
+    def __init__(
+        self,
+        input_channels: int = 1,
+        num_classes: int = 10,
+        kernel_size: int = KERNEL_SIZE,
+        stride: int = STRIDE,
+        padding: int = PADDING,
+    ):
+        super().__init__()
+
+        # First convolutional layer: in_channels=1 (grayscale), out_channels=16
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=input_channels,
+                out_channels=16,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),
+        )
+
+        # Second convolutional layer: in_channels=16, out_channels=32
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(
+                in_channels=16,
+                out_channels=32,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding,
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),
+        )
+
+        # Calculate the size of the flattened features after conv layers
+        # Input size: 28x28
+        # We compute the size of the output only on one dimension, as the image is a square.
+        # After conv1: ((28 + 2*padding - kernel_size) // stride + 1) // 2
+        # After conv2: ((previous + 2*padding - kernel_size) // stride + 1) // 2
+        conv1_out = ((28 + 2*padding - kernel_size) // stride + 1) // 2
+        conv2_out = ((conv1_out + 2*padding - kernel_size) // stride + 1) // 2
+        # We multiply the number of channels by the size of the output of the last convolutional layer.
+        flattened_size = 32 * conv2_out * conv2_out
+
+        # Fully connected layers for classification
+        self.fc = nn.Sequential(
+            nn.Linear(flattened_size, 128),
+            nn.ReLU(),
+            nn.Dropout(0.3),  # Prevent overfitting
+            nn.Linear(128, num_classes),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Input shape: (batch_size, 1, 28, 28)
+        x = self.conv1(x)
+        # Shape: (batch_size, 16, 14, 14)
+        x = self.conv2(x)
+        # Shape: (batch_size, 32, 7, 7)
+
+        # Flatten: (batch_size, 32 * 7 * 7)
+        x = x.view(x.size(0), -1)
+
+        # Output: (batch_size, num_classes)
+        return self.fc(x)
+
+
+
+# #### Model, criterion and optimizer
+# We use a CrossEntropyLoss as criterion to compute the loss between the predicted and the true labels, just as the perceptron.
+# %%
+# Initialize model, loss function and optimizer
+model = CNNModel(input_channels=1, num_classes=10, kernel_size=KERNEL_SIZE, stride=STRIDE, padding=PADDING)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9)
+summary(model)
+
+# %% [markdown]
+# #### Training loop
+# We will use early stopping based on validation loss to prevent overfitting.
+# Notice that the input size is 28x28, which is the size of the image, and that this shape is indicated to the network by the view function.
+# %%
+# Training parameters
+best_val_loss = float("inf")
+patience_counter = 0
+metrics = []
+
+# Training loop
+print("Starting training...")
+for epoch in range(NUM_EPOCHS):
+    # Training phase
+    model.train()
+    running_train_loss = 0.0
+    train_correct = 0
+    train_total = 0
+
+    for inputs, labels in train_loader:
+        # Reshape inputs to (batch_size, 1, 28, 28)
+        inputs = inputs.view(-1, 1, 28, 28)
+        
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        
+        running_train_loss += loss.item()
+        _, predicted = torch.max(outputs.data, 1)
+        train_total += labels.size(0)
+        train_correct += (predicted == labels).sum().item()
+
+    avg_train_loss = running_train_loss / len(train_loader)
+    train_accuracy = train_correct / train_total
+
+    # Validation phase
+    model.eval()
+    running_val_loss = 0.0
+    val_correct = 0
+    val_total = 0
+    val_preds = []
+    val_labels = []
+
+    with torch.no_grad():
+        for inputs, labels in val_loader:
+            # Reshape inputs to (batch_size, 1, 28, 28)
+            inputs = inputs.view(-1, 1, 28, 28)
+            
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            running_val_loss += loss.item()
+            
+            _, predicted = torch.max(outputs.data, 1)
+            val_total += labels.size(0)
+            val_correct += (predicted == labels).sum().item()
+            val_preds.extend(predicted.numpy())
+            val_labels.extend(labels.numpy())
+
+    avg_val_loss = running_val_loss / len(val_loader)
+    val_accuracy = val_correct / val_total
+
+    # Store metrics
+    metrics.append({
+        "epoch": epoch + 1,
+        "train_loss": avg_train_loss,
+        "train_accuracy": train_accuracy,
+        "val_loss": avg_val_loss,
+        "val_accuracy": val_accuracy,
+    })
+
+    # Print progress
+    print(f"Epoch {epoch+1}/{NUM_EPOCHS}")
+    print(f"Train Loss: {avg_train_loss:.4f} | Train Accuracy: {train_accuracy:.4f}")
+    print(f"Validation Loss: {avg_val_loss:.4f} | Validation Accuracy: {val_accuracy:.4f}")
+    print("----------------------------------------")
+
+    # Early stopping check
+    if avg_val_loss < best_val_loss:
+        best_val_loss = avg_val_loss
+        patience_counter = 0
+        # Save best model state
+        best_model_state = model.state_dict()
+    else:
+        patience_counter += 1
+        if patience_counter >= PATIENCE:
+            print(f"Early stopping triggered after {epoch + 1} epochs")
+            break
+
+
+# %%
+# Plot training progress
+epochs = [m["epoch"] for m in metrics]
+train_losses = [m["train_loss"] for m in metrics]
+val_losses = [m["val_loss"] for m in metrics]
+train_accuracies = [m["train_accuracy"] for m in metrics]
+val_accuracies = [m["val_accuracy"] for m in metrics]
+
+plt.figure(figsize=(12, 4))
+plt.subplot(1, 2, 1)
+plt.plot(epochs, train_losses, label="Train Loss")
+plt.plot(epochs, val_losses, label="Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.legend()
+
+plt.subplot(1, 2, 2)
+plt.plot(epochs, train_accuracies, label="Train Accuracy")
+plt.plot(epochs, val_accuracies, label="Validation Accuracy")
+plt.xlabel("Epoch")
+plt.ylabel("Accuracy")
+plt.legend()
+plt.tight_layout()
+plt.show()
+# %% [markdown]
+# Here again, we will stop the training when the validation loss is no longer decreasing, to avoid overfitting.
+# %%
+# Load best model for final evaluation
+model.load_state_dict(best_model_state)
+
+model.eval()
+test_preds = []
+test_labels = []
+
+with torch.no_grad():
+    for inputs, labels in test_loader:
+        # Reshape inputs to (batch_size, 1, 28, 28)
+        inputs = inputs.view(-1, 1, 28, 28)
+        
+        outputs = model(inputs)
+        _, predicted = torch.max(outputs.data, 1)
+        test_preds.extend(predicted.numpy())
+        test_labels.extend(labels.numpy())
+
+# %% tags=["hide_input"]
+# Print and plot classification metrics
+print_classification_metrics(np.array(test_labels), np.array(test_preds))
+plot_classification_metrics(
+    np.array(test_labels), np.array(test_preds), "CNN Classification Results"
+)
+
+# %% [markdown]
+# #### Results
+# The results are better to the random forest model (our previous best model), with an accuracy and a balanced accuracy around 98%. It means that it predicts wrongly more than twice less often than the random forest classifier.
+# The draw back of the convolutional network is that it is more difficult to understand the decision of the model, as it is a black box. It may need more time to train, more data to b properly trained, and we need extra reasearch to knwo if our model is a good representant of the CNN models.
+# Said otherwise, we have more hyperparameters to tune, and those tuning requires more time.
+# %%
