@@ -1,0 +1,4 @@
+jupyter nbconvert --to webpdf  build\MNIST_introduction_and_visualisation.ipynb --FilesWriter.build_directory=./pdf --template classic
+jupyter nbconvert --to webpdf build\MNIST_introduction_and_visualisation.ipynb  --FilesWriter.build_directory=./pdf --template lab --WebPDFExporter.paginate=False
+Reveal server
+jupyter nbconvert build\MNIST_introduction_and_visualisation.ipynb --to slides --post serve
